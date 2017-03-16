@@ -78,7 +78,7 @@ object moiveRecommender {
 
     //本地运行模式，读取本地的spark主目录
     var conf = new SparkConf().setAppName("Recommendation")
-     // .setSparkHome("D:\\work\\hadoop_lib\\spark-1.1.0-bin-hadoop2.4\\spark-1.1.0-bin-hadoop2.4")
+     //.setSparkHome("D:\\work\\hadoop_lib\\spark-1.1.0-bin-hadoop2.4\\spark-1.1.0-bin-hadoop2.4")
     .setMaster("local[2]")
     //集群运行模式，读取spark集群的环境变量
     //var conf = new SparkConf().setAppName("Moive Recommendation")
