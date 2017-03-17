@@ -1,4 +1,5 @@
 package dh.com.commender
+
 /**
   * Created by wdw on 3/9/17.
   */
@@ -88,8 +89,11 @@ object moiveRecommender {
     //val data = context.textFile("hdfs://ubuntu:8020/user/ml-20m/ml-20m/ratings.csv")
     /**
       * *MovieLens ratings are on a scale of 1-5:
-      * 5: Must see   * 4: Will enjoy  * 3: It's okay
-      * 2: Fairly bad  * 1: Awful
+      * 5: Must see
+      * 4: Will enjoy
+      * 3: It's okay
+      * 2: Fairly bad
+      * 1: Awful
       */
     val ratings = data.map(_.split("\t") match {
       case Array(user, item, rate, time) => Rating(user.toInt, item.toInt, rate.toDouble)
