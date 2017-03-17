@@ -184,6 +184,9 @@ object moiveRecommender {
       }
     })
 
+    val rdd =context.makeRDD(recommenders.iterator.next() to recommenders.get(recommenders.size()-1))
+    rdd.saveAsTextFile("hdfs://ubuntu:8020/user/result")
+
     //保存到到HBase的[recommender]表中
     //recommenders是返回的java的ArrayList，可以自己用Java或者Scala写HBase的操作工具类，这里我就不给出具体的代码了，应该可以很快的写出
     //HbaseUtil.saveListMap("recommender", recommenders)
