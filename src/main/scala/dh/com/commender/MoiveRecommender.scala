@@ -78,8 +78,8 @@ object moiveRecommender {
 
     //本地运行模式，读取本地的spark主目录
     var conf = new SparkConf().setAppName("Recommendation")
-     //.setSparkHome("D:\\work\\hadoop_lib\\spark-1.1.0-bin-hadoop2.4\\spark-1.1.0-bin-hadoop2.4")
-    .setMaster("local[2]")
+     // .setSparkHome("D:\\work\\hadoop_lib\\spark-1.1.0-bin-hadoop2.4\\spark-1.1.0-bin-hadoop2.4")
+    .setMaster("local[4]")
     //集群运行模式，读取spark集群的环境变量
     //var conf = new SparkConf().setAppName("Moive Recommendation")
     val context = new SparkContext(conf)
@@ -87,7 +87,6 @@ object moiveRecommender {
     //加载数据
     val data = context.textFile(params.input)
     //val data = context.textFile("hdfs://ubuntu:8020/user/ml-20m/ml-20m/ratings.csv")
-
     /**
       * *MovieLens ratings are on a scale of 1-5:
       * 5: Must see
@@ -116,9 +115,7 @@ object moiveRecommender {
 
     //clean up
     context.stop()
-
   }
-
   /**
     * 模型评估
     */
@@ -156,11 +153,11 @@ object moiveRecommender {
     */
   private def predictMoive(params: Params, context: SparkContext, model: MatrixFactorizationModel) {
 
-    var recommenders = new ArrayList[java.util.Map[String, String]]();
+    var recommenders = new ArrayList[java.util.Map[String, String]]()
+    val recommendershdfs =new ArrayList[String]()
 
     //读取需要进行电影推荐的用户数据
     val userData = context.textFile(params.userDataInput)
-
     userData.map(_.split("\\|") match {
       case Array(id, age, sex, job, x) => (id)
     }).collect().foreach(id => {
@@ -168,11 +165,12 @@ object moiveRecommender {
       var rs = model.recommendProducts(id.toInt, numRecommender)
       var value = ""
       var key = 0
-
+      var line =""
       //保存推荐数据到hbase中
       rs.foreach(r => {
         key = r.user
         value = value + r.product + ":" + r.rating + ","
+
       })
 
       //成功,则封装put对象，等待插入到Hbase中
@@ -180,13 +178,17 @@ object moiveRecommender {
         var put = new java.util.HashMap[String, String]()
         put.put("rowKey", key.toString)
         put.put("t:info", value)
+        //println(key,":",value)
+
+        line=key.toString()+":" + value
         recommenders.add(put)
+        recommendershdfs.add(line)
+        //recommendershdfs.add("\n")
       }
     })
-
-    val rdd =context.makeRDD(recommenders.iterator.next() to recommenders.get(recommenders.size()-1))
-    rdd.saveAsTextFile("hdfs://ubuntu:8020/user/result")
-
+    val rdd = context.makeRDD(recommendershdfs.toArray())
+    //rdd.saveAsObjectFile()
+    rdd.saveAsTextFile("hdfs://ubuntu:8020/user/result4")
     //保存到到HBase的[recommender]表中
     //recommenders是返回的java的ArrayList，可以自己用Java或者Scala写HBase的操作工具类，这里我就不给出具体的代码了，应该可以很快的写出
     //HbaseUtil.saveListMap("recommender", recommenders)
