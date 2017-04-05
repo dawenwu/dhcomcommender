@@ -4,13 +4,20 @@ package dh.com.commender
   * Created by wdw on 3/9/17.
   */
 //import org.apache.spark.SparkContext._
+
+import java.util.ListIterator
+
+import kafka.consumer.KafkaStream
 import org.apache.spark.SparkConf
 import org.apache.spark.mllib.recommendation._
-import org.apache.spark.rdd.{ PairRDDFunctions, RDD }
+import org.apache.spark.rdd.{PairRDDFunctions, RDD}
 import org.apache.spark.SparkContext
 //import scala.collection.mutable.HashMap
 import scopt.OptionParser
 import java.util.ArrayList
+import dh.com.mykafka.{ConsumeMsg,ProduceMsg}
+import kafka.consumer.ConsumerIterator;
+
 object moiveRecommender {
 
   val numRecommender = 10
@@ -65,17 +72,87 @@ object moiveRecommender {
         """.stripMargin)
     }
 
+    val  kafkaMsg =new ConsumeMsg("ubuntu:2181","ss","test")
+    val  producer =ProduceMsg("ubuntu:9092","OUTPUT")
     parser.parse(args, defaultParams).map { params =>
-       run(params)
+      onlinerecommendation(params,kafkaMsg,producer)
+      //run(params)
     } getOrElse {
       System.exit(1)
     }
-    //run()
+  }
+  def readline(x:KafkaStream[Array[Byte], Array[Byte]]):Unit ={
+       println(x)
+  }
+  def onlinerecommendation(params: Params,kafkaMsg:ConsumeMsg,outMsg:ProduceMsg): Unit = {
+    //本地运行模式，读取本地的spark主目录
+    var conf = new SparkConf().setAppName("Recommendation").setMaster("local[4]")
+    val context = new SparkContext(conf)
+    //加载数据
+    val data = context.textFile(params.input)
+    val ratings = data.map(_.split("\t") match {
+      case Array(user, item, rate, time) => Rating(user.toInt, item.toInt, rate.toDouble)
+    })
+    //使用ALS建立推荐模型
+    //也可以使用简单模式    val model = ALS.train(ratings, ranking, numIterations)
+    val model = new ALS()
+      .setRank(params.rank)
+      .setIterations(params.numIterations)
+      .setLambda(params.lambda)
+      .setImplicitPrefs(params.implicitPrefs)
+      .setUserBlocks(params.numUserBlocks)
+      .setProductBlocks(params.numProductBlocks)
+      .run(ratings)
+
+    while (true){
+      val streamIter: ListIterator[KafkaStream[Array[Byte], Array[Byte]]] = kafkaMsg.getKafkaStream()
+      //streams.foreach(s: KafkaStream[Array[Byte], Array[Byte]] => )
+      while (streamIter.hasNext){
+         val stream :KafkaStream[Array[Byte], Array[Byte]] =streamIter.next()
+         //println(ss+"-------------------------------------")
+         //})
+         //val sss= stream.foreach(f=>new String(f.message()))
+         while (stream.iterator().hasNext){
+             val streamIterator : ConsumerIterator[Array[Byte], Array[Byte]]  = stream.iterator()
+             val svalues:String = new String(streamIterator.next().message())
+             //val svalues =new String(message)
+             // println(sss)
+             val  id =svalues.split("\\|") match {
+               case Array(id, age, sex, job, x) => (id)
+             }
+            var rs = model.recommendProducts(id.toInt, numRecommender)
+
+            var value = ""
+            var key = "0"
+            //保存推荐数据到hbase中
+            rs.foreach(r => {
+             key = r.user.toString()
+             value = value + r.product + ":" + r.rating + ","
+            })
+            outMsg.sendMsg(key+"-"+value)
+
+         }
+        Thread.sleep(10)
+      }
+
+
+       //val  count =stream.size
+      // for( i <-1 to count){
+         //val s =stream.get(i-1)
+         //val s =stream.iterator
+         //val sString =s.flatMap( _.toString())
+        // println(sString)
+         /*while (streamIterator.hasNext()) {
+            val message = streamIterator.next().message()
+            val svalue =new String(message)
+           println(svalue)
+         }
+       }*/
+    }
+
   }
 
   def run(params: Params) {
-  //def run() {
-
     //本地运行模式，读取本地的spark主目录
     var conf = new SparkConf().setAppName("Recommendation")
      // .setSparkHome("D:\\work\\hadoop_lib\\spark-1.1.0-bin-hadoop2.4\\spark-1.1.0-bin-hadoop2.4")
@@ -149,7 +226,7 @@ object moiveRecommender {
   }
 
   /**
-    * 预测数据并保存到HBase中
+    * 预测数据并保存到hdfs中
     */
   private def predictMoive(params: Params, context: SparkContext, model: MatrixFactorizationModel) {
 
@@ -173,18 +250,20 @@ object moiveRecommender {
 
       })
 
+
       //成功,则封装put对象，等待插入到Hbase中
       if (!value.equals("")) {
         var put = new java.util.HashMap[String, String]()
         put.put("rowKey", key.toString)
         put.put("t:info", value)
-        println(key,":",value)
+       // println(key,":",value)
 
         line=key.toString()+":" + value
         recommenders.add(put)
         recommendershdfs.add(line)
       }
     })
+    //new ConsumeMsg()
     val rdd = context.makeRDD(recommendershdfs.toArray())
     rdd.saveAsObjectFile("hdfs://ubuntu:8020/user/result")
     //保存到到HBase的[recommender]表中
