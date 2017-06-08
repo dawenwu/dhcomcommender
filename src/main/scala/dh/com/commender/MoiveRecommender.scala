@@ -1,18 +1,14 @@
 package dh.com.commender
-
 /**
   * Created by wdw on 3/9/17.
   */
 //import org.apache.spark.SparkContext._
-
 import java.util.ListIterator
-
 import kafka.consumer.KafkaStream
 import org.apache.spark.SparkConf
 import org.apache.spark.mllib.recommendation._
 import org.apache.spark.rdd.{PairRDDFunctions, RDD}
 import org.apache.spark.SparkContext
-//import scala.collection.mutable.HashMap
 import scopt.OptionParser
 import java.util.ArrayList
 import dh.com.mykafka.{ConsumeMsg,ProduceMsg}
@@ -22,18 +18,17 @@ object moiveRecommender {
 
   val numRecommender = 10
   case class Params(
-                     input: String = null,
-                     numIterations: Int = 20,
-                     lambda: Double = 1.0,
-                     rank: Int = 10,
-                     numUserBlocks: Int = -1,
-                     numProductBlocks: Int = -1,
-                     implicitPrefs: Boolean = false,
-                     userDataInput: String = null)
-
+                 input: String = null,
+                 numIterations: Int = 20,
+                 lambda: Double = 1.0,
+                 rank: Int = 10,
+                 numUserBlocks: Int = -1,
+                 numProductBlocks: Int = -1,
+                 implicitPrefs: Boolean = false,
+                 userDataInput: String = null)
   def main(args: Array[String]) : Unit = {
-    val defaultParams = Params()
-    val parser = new OptionParser[Params]("MoiveRecommender") {
+      val defaultParams = Params()
+      val parser = new OptionParser[Params]("MoiveRecommender") {
       head("MoiveRecommender: an example app for ALS on MovieLens data.")
       opt[Int]("rank")
         .text(s"rank, default: ${defaultParams.rank}}")
@@ -63,12 +58,11 @@ object moiveRecommender {
         .action((x, c) => c.copy(input = x))
       note(
         """
-          |For example, the following command runs this app on a synthetic dataset:
-          |
-          | bin/spark-submit --class com.zachary.ml.MoiveRecommender \
-          |  examples/target/scala-*/spark-examples-*.jar \
-          |  --rank 5 --numIterations 20 --lambda 1.0 \
-          |  data/mllib/u.data
+          |For example, the following command runs this app on a synthetic dataset:|
+          |bin/spark-submit --class com.zachary.ml.MoiveRecommender \
+          |examples/target/scala-*/spark-examples-*.jar \
+          |--rank 5 --numIterations 20 --lambda 1.0 \
+          |data/mllib/u.data
         """.stripMargin)
     }
 
@@ -106,17 +100,13 @@ object moiveRecommender {
 
     while (true){
       val streamIter: ListIterator[KafkaStream[Array[Byte], Array[Byte]]] = kafkaMsg.getKafkaStream()
-      //streams.foreach(s: KafkaStream[Array[Byte], Array[Byte]] => )
+
       while (streamIter.hasNext){
          val stream :KafkaStream[Array[Byte], Array[Byte]] =streamIter.next()
-         //println(ss+"-------------------------------------")
-         //})
-         //val sss= stream.foreach(f=>new String(f.message()))
          while (stream.iterator().hasNext){
              val streamIterator : ConsumerIterator[Array[Byte], Array[Byte]]  = stream.iterator()
              val svalues:String = new String(streamIterator.next().message())
-             //val svalues =new String(message)
-             // println(sss)
+
              val  id =svalues.split("\\|") match {
                case Array(id, age, sex, job, x) => (id)
              }
@@ -130,26 +120,10 @@ object moiveRecommender {
              value = value + r.product + ":" + r.rating + ","
             })
             outMsg.sendMsg(key+"-"+value)
-
          }
         Thread.sleep(10)
       }
-
-
-       //val  count =stream.size
-      // for( i <-1 to count){
-         //val s =stream.get(i-1)
-         //val s =stream.iterator
-         //val sString =s.flatMap( _.toString())
-        // println(sString)
-         /*while (streamIterator.hasNext()) {
-            val message = streamIterator.next().message()
-            val svalue =new String(message)
-           println(svalue)
-         }
-       }*/
     }
-
   }
 
   def run(params: Params) {
@@ -160,7 +134,6 @@ object moiveRecommender {
     //集群运行模式，读取spark集群的环境变量
     //var conf = new SparkConf().setAppName("Moive Recommendation")
     val context = new SparkContext(conf)
-
     //加载数据
     val data = context.textFile(params.input)
     //val data = context.textFile("hdfs://ubuntu:8020/user/ml-20m/ml-20m/ratings.csv")
@@ -186,10 +159,8 @@ object moiveRecommender {
       .setUserBlocks(params.numUserBlocks)
       .setProductBlocks(params.numProductBlocks)
       .run(ratings)
-
     predictMoive(params, context, model)
     evaluateMode(ratings, model)
-
     //clean up
     context.stop()
   }
@@ -197,7 +168,6 @@ object moiveRecommender {
     * 模型评估
     */
   private def evaluateMode(ratings: RDD[Rating], model: MatrixFactorizationModel) {
-
     //使用训练数据训练模型
     val usersProducets = ratings.map(r => r match {
       case Rating(user, product, rate) => (user, product)
@@ -229,10 +199,8 @@ object moiveRecommender {
     * 预测数据并保存到hdfs中
     */
   private def predictMoive(params: Params, context: SparkContext, model: MatrixFactorizationModel) {
-
     var recommenders = new ArrayList[java.util.Map[String, String]]()
     val recommendershdfs =new ArrayList[String]()
-
     //读取需要进行电影推荐的用户数据
     val userData = context.textFile(params.userDataInput)
     userData.map(_.split("\\|") match {
@@ -247,17 +215,13 @@ object moiveRecommender {
       rs.foreach(r => {
         key = r.user
         value = value + r.product + ":" + r.rating + ","
-
       })
-
 
       //成功,则封装put对象，等待插入到Hbase中
       if (!value.equals("")) {
         var put = new java.util.HashMap[String, String]()
         put.put("rowKey", key.toString)
         put.put("t:info", value)
-       // println(key,":",value)
-
         line=key.toString()+":" + value
         recommenders.add(put)
         recommendershdfs.add(line)
@@ -270,5 +234,4 @@ object moiveRecommender {
     //recommenders是返回的java的ArrayList，可以自己用Java或者Scala写HBase的操作工具类，这里我就不给出具体的代码了，应该可以很快的写出
     //HbaseUtil.saveListMap("recommender", recommenders)
   }
-
 }
