@@ -1,5 +1,4 @@
 package dh.com.mykafka
-
 /**
   * Created by wdw on 2017/4/1.
   */
@@ -21,14 +20,11 @@ object MultiThreadConsumer {
 
   def main(args: Array[String]): Unit = {
     println(" 开始了 ")
-
     val connector = Consumer.create(createConfig())
     val topicCountMap = new HashMap[String, Int]()
     topicCountMap.put(TOPIC, 1) // TOPIC在创建时就指定了它有2个partition
-
     val msgStreams: Map[String, List[KafkaStream[Array[Byte], Array[Byte]]]]
     = connector.createMessageStreams(topicCountMap)
-
     println("# of streams is " + msgStreams.get(TOPIC).get.size)
     // 变量futureIndex用来输出Future的序号
     var futureIndex = 0
@@ -43,7 +39,6 @@ object MultiThreadConsumer {
      */
     println(" 结束了 ")
   }
-
   /**
     * 一个Future处理一个stream
     * TODO:  还需要一个可以控制Future结束的机制
@@ -52,21 +47,21 @@ object MultiThreadConsumer {
     * @return
     */
   def processSingleStream(futureIndex:Int, stream: KafkaStream[Array[Byte], Array[Byte]]): Future[Unit] = future {
-    val it: ConsumerIterator[Array[Byte], Array[Byte]] = stream.iterator()
-    while (it.hasNext) {
-      val data: MessageAndMetadata[Array[Byte], Array[Byte]] = it.next()
-      println("futureNumer->[" + futureIndex + "],  key->[" + new String(data.key) + "],  message->[" + new String(data.message) + "],  partition->[" +
+     val it: ConsumerIterator[Array[Byte], Array[Byte]] = stream.iterator()
+     while (it.hasNext) {
+        val data: MessageAndMetadata[Array[Byte], Array[Byte]] = it.next()
+        println("futureNumer->[" + futureIndex + "],  key->[" + new String(data.key) + "],  message->[" + new String(data.message) + "],  partition->[" +
         data.partition + "],  offset->[" + data.offset + "]")
     }
   }
 
   def createConfig(): ConsumerConfig = {
-    val props = new Properties()
-    props.put("zookeeper.connect", ZK_CONN)
-    props.put("group.id", GROUP_ID)
-    props.put("zookeeper.session.timeout.ms", "400")
-    props.put("zookeeper.sync.time.ms", "200")
-    props.put("auto.commit.interval.ms", "1000")
-    new ConsumerConfig(props)
+      val props = new Properties()
+      props.put("zookeeper.connect", ZK_CONN)
+      props.put("group.id", GROUP_ID)
+      props.put("zookeeper.session.timeout.ms", "400")
+      props.put("zookeeper.sync.time.ms", "200")
+      props.put("auto.commit.interval.ms", "1000")
+      new ConsumerConfig(props)
   }
 }

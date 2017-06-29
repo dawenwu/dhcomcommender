@@ -20,7 +20,8 @@ object moiveRecommender {
                  input: String = null,numIterations: Int = 20,
                  lambda: Double = 1.0,rank: Int = 10,
                  numUserBlocks: Int = -1,numProductBlocks: Int = -1,
-                 implicitPrefs: Boolean = false,userDataInput: String = null)
+                 implicitPrefs: Boolean = false,userDataInput: String = null,
+                 master: String =null)
 
   def main(args: Array[String]) : Unit = {
       val defaultParams = Params()
@@ -41,6 +42,8 @@ object moiveRecommender {
       opt[Unit]("implicitPrefs") .text("use implicit preference").action((_, c) => c.copy(implicitPrefs = true))
 
       opt[String]("userDataInput").required() .text("use data input path") .action((x, c) => c.copy(userDataInput = x))
+
+      opt[String]("master").required() .text("spark work model") .action((x, c) => c.copy(master = x))
 
       arg[String]("<input>") .required() .text("input paths to a MovieLens dataset of ratings") .action((x, c) => c.copy(input = x))
 
@@ -68,7 +71,7 @@ object moiveRecommender {
   }
   def onlinerecommendation(params: Params,kafkaMsg:ConsumeMsg,outMsg:ProduceMsg): Unit = {
        //本地运行模式，读取本地的spark主目录
-       var conf = new SparkConf().setAppName("Recommendation").setMaster("local[4]")
+       var conf = new SparkConf().setAppName("Recommendation").setMaster(params.master)
        val context = new SparkContext(conf)
        //加载数据
        val data = context.textFile(params.input)
